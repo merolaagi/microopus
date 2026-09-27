@@ -7,6 +7,7 @@ PORT="$(cat PORT)"
 LABEL="com.merolaagi.microopus"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
+rm -f weights/model.json
 PY="$(command -v python3.12 || command -v python3)"
 [ -d .venv ] || "$PY" -m venv .venv
 .venv/bin/pip install -q --upgrade pip

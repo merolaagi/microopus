@@ -26,7 +26,9 @@ PY
 fi
 
 cloudflared tunnel --config "$CFG" ingress validate
-cloudflared tunnel route dns "$TUNNEL" "$HOST" || echo "DNS route not created here. Add a CNAME for microopus pointing to the $TUNNEL tunnel in the Cloudflare dashboard."
+TARGET="$(cloudflared tunnel list | awk -v t="$TUNNEL" '$2==t{print $1}').cfargotunnel.com"
+echo "Add this DNS record in the fueldeskpro.com zone (Cloudflare dashboard), Proxied:"
+echo "  CNAME  microopus  ->  $TARGET"
 sudo launchctl kickstart -k system/com.cloudflare.cloudflared
 sleep 4
 curl -fsS "https://$HOST/api/health" && echo && echo "Live at https://$HOST" || echo "Not reachable yet. DNS can take a minute; retry: curl https://$HOST/api/health"

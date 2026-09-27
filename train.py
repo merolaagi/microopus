@@ -1,149 +1,120 @@
 """
-Trains Micro Opus from random noise and writes weights/model.json.
+Trains Micro Opus from random noise. This is the only code that ever changes a weight.
 
-This is the only place weights ever change. model.py only reads them.
-Uses the tiny `autograd` package so the whole thing runs on numpy.
+    python train.py words     the toy sentence world, one word per token
+    python train.py names     32k real first names, one character per token
+
+One training step is four moves:
+    1. forward   push a batch of text through the current weights
+    2. loss      how surprised was the model by the real next token?
+    3. backward  chain rule in reverse: one gradient per weight
+    4. update    nudge every weight against its gradient (Adam)
 """
-import json, random
+import json
+import random
+import sys
+import time
 from pathlib import Path
-import autograd.numpy as np
-from autograd import grad
-import numpy as onp
 
-random.seed(7); onp.random.seed(7)
+import numpy as np
 
-# ---------- corpus: a tiny world with long-range dependencies ----------
-subj = {
-    "cat":  ["sat", "slept"],
-    "dog":  ["ran", "slept"],
-    "bird": ["flew", "sang"],
-    "fish": ["swam"],
-    "kid":  ["ran", "sat", "sang"],
-}
-place = {
-    "sat":   ["on", ["mat", "bed", "chair"]],
-    "slept": ["on", ["mat", "bed"]],
-    "ran":   ["to", ["park", "house", "store"]],
-    "flew":  ["over", ["tree", "house"]],
-    "sang":  ["in", ["tree", "park"]],
-    "swam":  ["in", ["pond", "lake"]],
-}
-adjs = ["big", "small", "happy"]
+from model import MicroOpus
 
-def sentence():
-    s = random.choice(list(subj))
-    v = random.choice(subj[s])
-    p, objs = place[v]
-    o = random.choice(objs)
-    words = ["the"]
-    if random.random() < 0.35:
-        words.append(random.choice(adjs))
-    words += [s, v, p, "the", o, "."]
-    return words
+ROOT = Path(__file__).parent
+CONFIG = dict(D=16, H=2, L=2, F=64, T=16)
 
-vocab = ["<s>"]
-for w in ["the", ".", *adjs, *subj, *place, "on", "to", "over", "in"]:
-    if w not in vocab: vocab.append(w)
-for v in place.values():
-    for o in v[1]:
-        if o not in vocab: vocab.append(o)
-stoi = {w: i for i, w in enumerate(vocab)}
-V = len(vocab)
 
-T = 16
-def sample_seq():
-    toks = ["<s>"]
-    while len(toks) < T + 1:
-        toks += sentence()
-    return [stoi[w] for w in toks[:T + 1]]
+def words_corpus(rng):
+    subj = {"cat": ["sat", "slept"], "dog": ["ran", "slept"], "bird": ["flew", "sang"],
+            "fish": ["swam"], "kid": ["ran", "sat", "sang"]}
+    place = {"sat": ["on", ["mat", "bed", "chair"]], "slept": ["on", ["mat", "bed"]],
+             "ran": ["to", ["park", "house", "store"]], "flew": ["over", ["tree", "house"]],
+             "sang": ["in", ["tree", "park"]], "swam": ["in", ["pond", "lake"]]}
+    adjs = ["big", "small", "happy"]
+    vocab = ["<s>", "the", ".", *adjs, *subj, *place, "on", "to", "over", "in"]
+    for _, objs in place.values():
+        vocab += [o for o in objs if o not in vocab]
 
-data = onp.array([sample_seq() for _ in range(512)])
+    def sentence():
+        s = rng.choice(list(subj))
+        v = rng.choice(subj[s])
+        p, objs = place[v]
+        words = ["the"] + ([rng.choice(adjs)] if rng.random() < 0.35 else [])
+        return words + [s, v, p, "the", rng.choice(objs), "."]
 
-# ---------- model ----------
-D, H, L, F = 16, 2, 2, 64
-DH = D // H
+    def stream(n_tokens):
+        out = ["<s>"]
+        while len(out) < n_tokens:
+            out += sentence()
+        return [vocab.index(w) for w in out]
 
-def init():
-    r = lambda *s: onp.random.randn(*s) * 0.08
-    P = {"W_E": r(V, D), "W_P": r(T, D), "g_f": onp.ones(D), "W_U": r(D, V)}
-    for l in range(L):
-        P[f"L{l}.g1"] = onp.ones(D)
-        P[f"L{l}.W_Q"] = r(D, D)
-        P[f"L{l}.W_K"] = r(D, D)
-        P[f"L{l}.W_V"] = r(D, D)
-        P[f"L{l}.W_O"] = r(D, D)
-        P[f"L{l}.g2"] = onp.ones(D)
-        P[f"L{l}.W_up"] = r(D, F)
-        P[f"L{l}.W_down"] = r(F, D) * 0.5
-    return P
+    return vocab, stream(30000), stream(3000), False
 
-def rms(x, g):
-    return x / np.sqrt(np.mean(x * x, axis=-1, keepdims=True) + 1e-5) * g
 
-def gelu(x):
-    return 0.5 * x * (1 + np.tanh(0.7978845608 * (x + 0.044715 * x ** 3)))
+def names_corpus(rng):
+    names = (ROOT / "data" / "names.txt").read_text().split()
+    rng.shuffle(names)
+    vocab = ["<s>"] + [chr(c) for c in range(ord("a"), ord("z") + 1)]
+    enc = lambda ns: [i for n in ns for i in [0] + [vocab.index(ch) for ch in n]] + [0]
+    return vocab, enc(names[:-1000]), enc(names[-1000:]), True
 
-mask = onp.triu(onp.ones((T, T)), 1) * -1e9
 
-def forward(P, idx):
-    B, t = idx.shape
-    x = P["W_E"][idx] + P["W_P"][:t]
-    for l in range(L):
-        h = rms(x, P[f"L{l}.g1"])
-        q = np.reshape(h @ P[f"L{l}.W_Q"], (B, t, H, DH))
-        k = np.reshape(h @ P[f"L{l}.W_K"], (B, t, H, DH))
-        v = np.reshape(h @ P[f"L{l}.W_V"], (B, t, H, DH))
-        s = np.einsum("bihd,bjhd->bhij", q, k) / np.sqrt(DH) + mask[:t, :t]
-        s = s - np.max(s, axis=-1, keepdims=True)
-        a = np.exp(s); a = a / np.sum(a, axis=-1, keepdims=True)
-        o = np.reshape(np.einsum("bhij,bjhd->bihd", a, v), (B, t, D))
-        x = x + o @ P[f"L{l}.W_O"]
-        h = rms(x, P[f"L{l}.g2"])
-        x = x + gelu(h @ P[f"L{l}.W_up"]) @ P[f"L{l}.W_down"]
-    return rms(x, P["g_f"]) @ P["W_U"]
+def init_weights(cfg, V, rng):
+    D, F, T = cfg["D"], cfg["F"], cfg["T"]
+    r = lambda *s: rng.normal(0, 0.08, s)
+    W = {"W_E": r(V, D), "W_P": r(T, D), "g_f": np.ones(D), "W_U": r(D, V)}
+    for l in range(cfg["L"]):
+        W |= {f"L{l}.g1": np.ones(D), f"L{l}.W_Q": r(D, D), f"L{l}.W_K": r(D, D), f"L{l}.W_V": r(D, D),
+              f"L{l}.W_O": r(D, D), f"L{l}.g2": np.ones(D), f"L{l}.W_up": r(D, F), f"L{l}.W_down": r(F, D) * 0.5}
+    return W
 
-def loss(P, batch):
-    logits = forward(P, batch[:, :-1])
-    y = batch[:, 1:]
-    m = np.max(logits, axis=-1, keepdims=True)
-    lse = np.log(np.sum(np.exp(logits - m), axis=-1)) + m[..., 0]
-    tgt = np.sum(logits * onp.eye(V)[y], axis=-1)
-    return np.mean(lse - tgt)
 
-P = init()
-g = grad(loss)
-m = {k: onp.zeros_like(v) for k, v in P.items()}
-s2 = {k: onp.zeros_like(v) for k, v in P.items()}
-lr, b1, b2 = 0.01, 0.9, 0.99
-steps = 2500
-hist = []
-for step in range(1, steps + 1):
-    batch = data[onp.random.choice(len(data), 64)]
-    G = g(P, batch)
-    cur = lr * min(1, step / 100) * (0.1 + 0.9 * (1 - step / steps))
-    for k in P:
-        m[k] = b1 * m[k] + (1 - b1) * G[k]
-        s2[k] = b2 * s2[k] + (1 - b2) * G[k] ** 2
-        P[k] = P[k] - cur * (m[k] / (1 - b1 ** step)) / (onp.sqrt(s2[k] / (1 - b2 ** step)) + 1e-8)
-    if step % 100 == 0 or step == 1:
-        lv = float(loss(P, data[:128]))
-        hist.append([step, round(lv, 4)])
-        print(step, round(lv, 4))
+def batch(stream, T, B, rng):
+    starts = rng.integers(0, len(stream) - T - 1, B)
+    chunk = np.array([stream[s:s + T + 1] for s in starts])
+    return chunk[:, :-1], chunk[:, 1:]
 
-# ---------- export ----------
-R = lambda a: onp.round(onp.asarray(a), 4).tolist()
-test_ids = onp.array([[stoi[w] for w in "<s> the bird flew over the".split()]])
-out = {
-    "config": {"V": V, "T": T, "D": D, "H": H, "L": L, "F": F},
-    "vocab": vocab,
-    "loss_curve": hist,
-    "weights": {k: R(v) for k, v in P.items()},
-}
-Pr = {k: onp.array(v) for k, v in out["weights"].items()}
-out["test"] = {"ids": test_ids[0].tolist(), "logits_last": R(forward(Pr, test_ids)[0, -1])}
-out_path = Path(__file__).parent / "weights" / "model.json"
-out_path.parent.mkdir(exist_ok=True)
-out_path.write_text(json.dumps(out, separators=(",", ":")))
-probs = onp.exp(out["test"]["logits_last"]); probs /= probs.sum()
-print("after 'the bird flew over the':", [(vocab[i], round(probs[i], 3)) for i in onp.argsort(-probs)[:4]])
-print("params:", sum(onp.size(v) for v in P.values()))
+
+def train(kind, steps, B=32, lr=0.01, seed=7):
+    rng = np.random.default_rng(seed)
+    vocab, stream, held_out, chars = (words_corpus if kind == "words" else names_corpus)(random.Random(seed))
+    cfg = dict(CONFIG, V=len(vocab), chars=chars)
+    model = MicroOpus(W=init_weights(cfg, len(vocab), rng), cfg=cfg, vocab=vocab)
+    m = {k: np.zeros_like(w) for k, w in model.W.items()}
+    v = {k: np.zeros_like(w) for k, w in model.W.items()}
+    b1, b2 = 0.9, 0.99
+    curve, t0 = [], time.time()
+    xe, ye = batch(held_out, cfg["T"], 256, np.random.default_rng(1))
+
+    for step in range(1, steps + 1):
+        xb, yb = batch(stream, cfg["T"], B, rng)
+        tr = {}
+        probs = model.forward(xb, tr)
+        loss = model.cross_entropy(probs, yb)
+        grads = model.backward(tr, yb)
+        lr_t = lr * min(1, step / 100) * (0.1 + 0.9 * (1 - step / steps))
+        for k, g in grads.items():
+            m[k] = b1 * m[k] + (1 - b1) * g
+            v[k] = b2 * v[k] + (1 - b2) * g * g
+            model.W[k] -= lr_t * (m[k] / (1 - b1 ** step)) / (np.sqrt(v[k] / (1 - b2 ** step)) + 1e-8)
+        if step == 1 or step % 100 == 0:
+            held = model.cross_entropy(model.forward(xe), ye)
+            curve.append([step, round(loss, 4), round(held, 4)])
+            print(f"step {step:5d}  loss {loss:.3f}  held-out {held:.3f}  ({time.time() - t0:.0f}s)")
+
+    R = lambda a: np.round(a, 4).tolist()
+    out = {
+        "config": cfg, "vocab": vocab, "loss_curve": curve,
+        "weights": {k: R(w) for k, w in model.W.items()},
+        "eval": {"x": xe[:48].tolist(), "y": ye[:48].tolist()},
+        "corpus": stream[:40000],
+    }
+    path = ROOT / "weights" / f"{kind}.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(out, separators=(",", ":")))
+    print(f"wrote {path}  ({sum(w.size for w in model.W.values())} weights)")
+
+
+if __name__ == "__main__":
+    kind = sys.argv[1] if len(sys.argv) > 1 else "words"
+    train(kind, steps=3000 if kind == "words" else 6000)

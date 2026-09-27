@@ -18,12 +18,13 @@ ROOT = Path(__file__).parent
 VERSION = (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").exists() else "dev"
 SOURCES = {"model.py", "train.py", "server.py", "frontend/engine.js"}
 
-model = MicroOpus()
+MODELS = {name: MicroOpus(name) for name in ("words", "names")}
 app = FastAPI(title="Micro Opus")
 
 
 class TraceRequest(BaseModel):
     ids: list[int]
+    model: str = "words"
 
 
 def to_json(v):
@@ -40,19 +41,22 @@ def to_json(v):
 
 @app.get("/api/health")
 def health():
-    params = sum(int(t.size) for t in model.W.values())
-    return {"engine": "model.py", "version": VERSION, "params": params, "vocab": len(model.vocab)}
+    models = {n: sum(int(t.size) for t in m.W.values()) for n, m in MODELS.items()}
+    return {"engine": "model.py", "version": VERSION, "models": models}
 
 
 @app.post("/api/trace")
 def trace(req: TraceRequest):
-    ids = req.ids
+    ids, model = req.ids, MODELS.get(req.model)
+    if model is None:
+        raise HTTPException(400, f"Unknown model. Choose one of: {', '.join(MODELS)}.")
     if not 1 <= len(ids) <= model.cfg["T"]:
         raise HTTPException(400, f"Send between 1 and {model.cfg['T']} token ids.")
     if any(not 0 <= i < len(model.vocab) for i in ids):
-        raise HTTPException(400, "Token id outside the 30-word vocabulary.")
+        raise HTTPException(400, f"Token id outside the {len(model.vocab)}-token vocabulary.")
     tr = {"ids": ids}
     model.forward(ids, tr)
+    tr["ids"] = ids
     return to_json(tr)
 
 

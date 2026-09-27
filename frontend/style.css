@@ -194,33 +194,33 @@ section.view.wb{max-width:none;padding:0}
 .scopecol .scope{border:0;padding:0;background:none}
 
 /* graph */
-svg#graph{display:block;width:100%;height:auto}
-#graph .rack{fill:var(--weight-soft);stroke:color-mix(in srgb,var(--weight) 40%,transparent);stroke-dasharray:3 3}
-#graph .rackT{fill:var(--weight);font-weight:700;font-size:11px}
-#graph .slot rect{fill:var(--surface);stroke:color-mix(in srgb,var(--weight) 55%,transparent);transition:fill .25s}
-#graph .slot text{fill:var(--weight);font-family:var(--mono);font-size:9.5px}
-#graph .slot.live rect{fill:var(--weight);stroke:var(--weight)}
-#graph .slot.live text{fill:var(--bg);font-weight:600}
-#graph .slot.used rect{stroke:var(--weight);stroke-width:1.5}
-#graph .fl{fill:none;stroke:var(--weight);stroke-width:1.5;stroke-dasharray:3 4;opacity:0;transition:opacity .2s}
-#graph .fl.live{opacity:.9}
-#graph .ed{fill:none;stroke:var(--line);stroke-width:2}
-#graph .ed.res{stroke-dasharray:6 4}
-#graph .ed.done{stroke:color-mix(in srgb,var(--act) 55%,var(--line))}
-#graph .gn{cursor:pointer}
-#graph .gn rect,#graph .gn circle{fill:var(--surface);stroke:var(--line);stroke-width:1.5;transition:fill .25s,stroke .25s}
-#graph .gn text{fill:var(--ink);font-size:12px;font-weight:600;pointer-events:none}
-#graph .gn text.sub{fill:var(--muted);font-weight:400;font-size:10px}
-#graph .gn text.wsub{fill:var(--weight);font-family:var(--mono);font-size:9.5px;font-weight:400}
-#graph .gn.param rect{stroke:color-mix(in srgb,var(--weight) 60%,var(--line))}
-#graph .gn:hover rect,#graph .gn:hover circle{stroke:var(--muted)}
-#graph .gn.done rect,#graph .gn.done circle{fill:color-mix(in srgb,var(--act) 7%,var(--surface))}
-#graph .gn.cur rect,#graph .gn.cur circle{stroke:var(--act);stroke-width:2.5}
-#graph .gn.hot rect,#graph .gn.hot circle{fill:var(--act-soft)}
-#graph .blk{fill:none;stroke:var(--line);stroke-dasharray:5 4}
-#graph .blkT{fill:var(--muted);font-size:11px}
-#graph circle.ap{fill:var(--act);filter:drop-shadow(0 0 4px var(--act))}
-#graph circle.wp{fill:var(--weight);filter:drop-shadow(0 0 4px var(--weight))}
+svg.gsvg{display:block;width:100%;height:auto}
+.gsvg .rack{fill:var(--weight-soft);stroke:color-mix(in srgb,var(--weight) 40%,transparent);stroke-dasharray:3 3}
+.gsvg .rackT{fill:var(--weight);font-weight:700;font-size:11px}
+.gsvg .slot rect{fill:var(--surface);stroke:color-mix(in srgb,var(--weight) 55%,transparent);transition:fill .25s}
+.gsvg .slot text{fill:var(--weight);font-family:var(--mono);font-size:9.5px}
+.gsvg .slot.live rect{fill:var(--weight);stroke:var(--weight)}
+.gsvg .slot.live text{fill:var(--bg);font-weight:600}
+.gsvg .slot.used rect{stroke:var(--weight);stroke-width:1.5}
+.gsvg .fl{fill:none;stroke:var(--weight);stroke-width:1.5;stroke-dasharray:3 4;opacity:0;transition:opacity .2s}
+.gsvg .fl.live{opacity:.9}
+.gsvg .ed{fill:none;stroke:var(--line);stroke-width:2}
+.gsvg .ed.res{stroke-dasharray:6 4}
+.gsvg .ed.done{stroke:color-mix(in srgb,var(--act) 55%,var(--line))}
+.gsvg .gn{cursor:pointer}
+.gsvg .gn rect,.gsvg .gn circle{fill:var(--surface);stroke:var(--line);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.gsvg .gn text{fill:var(--ink);font-size:12px;font-weight:600;pointer-events:none}
+.gsvg .gn text.sub{fill:var(--muted);font-weight:400;font-size:10px}
+.gsvg .gn text.wsub{fill:var(--weight);font-family:var(--mono);font-size:9.5px;font-weight:400}
+.gsvg .gn.param rect{stroke:color-mix(in srgb,var(--weight) 60%,var(--line))}
+.gsvg .gn:hover rect,.gsvg .gn:hover circle{stroke:var(--muted)}
+.gsvg .gn.done rect,.gsvg .gn.done circle{fill:color-mix(in srgb,var(--act) 7%,var(--surface))}
+.gsvg .gn.cur rect,.gsvg .gn.cur circle{stroke:var(--act);stroke-width:2.5}
+.gsvg .gn.hot rect,.gsvg .gn.hot circle{fill:var(--act-soft)}
+.gsvg .blk{fill:none;stroke:var(--line);stroke-dasharray:5 4}
+.gsvg .blkT{fill:var(--muted);font-size:11px}
+.gsvg circle.ap{fill:var(--act);filter:drop-shadow(0 0 4px var(--act))}
+.gsvg circle.wp{fill:var(--weight);filter:drop-shadow(0 0 4px var(--weight))}
 
 /* code window */
 .codecol{display:flex;flex-direction:column;border-right:0;overflow:hidden;background:var(--surface)}
@@ -267,3 +267,30 @@ svg#graph{display:block;width:100%;height:auto}
   .vs{grid-template-columns:1fr}.vs > div + div{border-left:0;border-top:1px solid var(--line)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- v0.4: training, gradients, cache ---------- */
+:root{--grad:#7C3AED;--grad-soft:rgba(124,58,237,.12)}
+:root[data-theme="dark"]{--grad:#B794F6;--grad-soft:rgba(183,148,246,.16)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--grad:#B794F6;--grad-soft:rgba(183,148,246,.16)}}
+.g{color:var(--grad);font-weight:600}
+.gtag{font-family:var(--mono);font-size:12px;border-radius:4px;padding:1px 6px;color:var(--grad);background:var(--grad-soft);border:1px solid color-mix(in srgb,var(--grad) 45%,transparent)}
+.modelpick{display:flex;gap:6px;align-items:center}
+.gsvg circle.gp,#tgraph circle.gp{fill:var(--grad);filter:drop-shadow(0 0 4px var(--grad))}
+.gsvg circle.ap{fill:var(--act)}
+.gsvg .slot .gl{fill:var(--grad);opacity:0;transition:opacity .25s}
+.gsvg .slot.glive rect.sr{stroke:var(--grad);stroke-width:2}
+.gsvg .slot.upd rect.sr{fill:var(--weight)}
+.gsvg .slot.upd text{fill:var(--bg)}
+.gsvg .fl.glive{stroke:var(--grad);opacity:.9}
+.gsvg .gn.bcur rect,.gsvg .gn.bcur circle{stroke:var(--grad);stroke-width:2.5;fill:var(--grad-soft)}
+.phases{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+.phases span{font-size:13px;border:1px solid var(--line);border-radius:20px;padding:3px 12px;color:var(--muted)}
+.phases span.on{border-color:var(--grad);color:var(--grad);background:var(--grad-soft);font-weight:600}
+.phases span.done{color:var(--ink)}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.trio h4{margin:0 0 6px;font-size:13px}
+.samples{font-family:var(--mono);font-size:14px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.kvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:10px}
+.kvgrid h4{margin:0 0 6px;font-size:14px}
+.tsel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:var(--mono);font-size:13px}
+@media (max-width:900px){.trio{grid-template-columns:1fr}}

@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FE = ROOT / "frontend"
 
-model = json.loads((ROOT / "weights" / "model.json").read_text())
+models = {n: json.loads((ROOT / "weights" / f"{n}.json").read_text()) for n in ("words", "names")}
 sources = {
     "model.py": (ROOT / "model.py").read_text(),
     "train.py": (ROOT / "train.py").read_text(),
@@ -19,7 +19,7 @@ sources = {
     "engine.js": (FE / "engine.js").read_text(),
 }
 data = (
-    "window.MODEL = " + json.dumps(model, separators=(",", ":")) + ";\n"
+    "window.MODELS = " + json.dumps(models, separators=(",", ":")) + ";\n"
     "window.SOURCES = " + json.dumps(sources) + ";\n"
 )
 (FE / "data.js").write_text(data)

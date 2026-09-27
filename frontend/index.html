@@ -15,6 +15,7 @@
   <div class="topbar">
     <div class="brand">Micro Opus</div>
     <ul class="tabs" id="nav"></ul>
+    <label class="modelpick"><span class="small muted">Model</span> <select id="modelSel" class="pbtn"><option value="words">Words (toy sentences)</option><option value="names">Names (letters)</option></select></label>
     <span class="engine" id="engine"><i></i><span>Checking engine</span></span>
     <button class="themeBtn" id="themeBtn">Light / dark</button>
   </div>
@@ -54,21 +55,45 @@
         </div>
         <div class="rc">
           <div class="col scopecol" id="scopecol"><div class="scope" id="scope"></div></div>
-          <div class="col codecol">
-            <div class="codetabs" role="tablist" id="codeTabs"></div>
-            <div class="codenote" id="codeNote"></div>
-            <div class="codebody" id="codeBody"></div>
+          <div class="col codecol" id="wbCode">
+            <div class="codetabs" role="tablist"></div>
+            <div class="codenote"></div>
+            <div class="codebody"></div>
             <div class="locals" id="locals"></div>
           </div>
         </div>
       </div>
     </section>
-    <section class="view" id="v-overview">
+    <section class="view wb" id="v-training">
+      <div class="transport">
+        <button class="btn primary" id="trWalk">Walk through one step</button>
+        <button class="btn" id="trRun">Train</button>
+        <button class="btn" id="trReset">Start over from random</button>
+        <button class="btn" id="trUse">Use these weights in the app</button>
+        <label class="small muted">Speed <select id="trSpeed" class="pbtn"><option value="1">1 step per frame</option><option value="4" selected>4 steps per frame</option><option value="12">12 steps per frame</option></select></label>
+        <span class="stepno" id="trStat"></span>
+      </div>
+      <div class="wbgrid">
+        <div class="col graphcol" id="tgscroll">
+          <div class="colhead"><b>Network</b><span>gradients flow back into memory</span></div>
+          <svg id="tgraph" role="img" aria-label="Network graph showing gradients flowing backward into weight memory"></svg>
+        </div>
+        <div class="rc">
+          <div class="col scopecol" id="trCenter"></div>
+          <div class="col codecol" id="trCode">
+            <div class="codetabs" role="tablist"></div>
+            <div class="codenote"></div>
+            <div class="codebody"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+<section class="view" id="v-overview">
       <div class="hero">
         <div>
-          <h1>Watch 7,440 fixed numbers pick the next word.</h1>
+          <h1>Watch <span class="pcount">7,440</span> fixed numbers pick the next token.</h1>
           <p class="lede">This is a real transformer, the same design family as GPT, Llama and Kimi, shrunk until every weight fits on screen. It was trained for this page, and it runs live in your browser. Change the input above and it thinks again. The Workbench tab animates a full forward pass next to the Python code that runs it.</p>
-          <p class="bignum">2 layers, 2 attention heads per layer, 16 numbers per token, a 30-word vocabulary.</p>
+          <p class="bignum">2 layers, 2 attention heads per layer, 16 numbers per token. Switch between two trained models at the top: toy sentences, one word per token, or 32,000 real first names, one letter per token.</p>
         </div>
         <div class="panel predict">
           <h3>What it predicts next</h3><span class="muted small" id="ovCtx"></span>
@@ -131,10 +156,10 @@
     </section>
 <section class="view" id="v-generation">
       <h2>Generation: the same weights, over and over</h2>
-      <p class="lede">A model writes one token per forward pass. Each new word goes back into the input and the entire pass runs again, reading the same unchanged weights.</p>
+      <p class="lede">A model writes one token per pass. Each new token goes back in and the pass runs again, reading the same unchanged weights. Real systems keep a key/value cache so each pass only computes one new row; you can watch it grow below.</p>
       <div class="gencontrols">
-        <button class="btn primary" id="gen1">Write one word</button>
-        <button class="btn" id="gen8">Write eight words</button>
+        <button class="btn primary" id="gen1">Write one token</button>
+        <button class="btn" id="gen8">Write eight tokens</button>
         <button class="btn" id="genReset">Restart from input</button>
         <label class="small muted" style="display:flex;gap:8px;align-items:center">Temperature <input type="range" id="temp" min="0" max="1.5" step="0.1" value="0.8"> <span id="tempV" class="mono">0.8</span></label>
       </div>
@@ -144,11 +169,15 @@
         <div class="panel"><h3>Last prediction</h3><div class="bars" id="genBars"></div><p class="cap" id="genTempNote"></p></div>
         <div class="panel"><h3>Pass log</h3><div class="log" id="genLog"></div></div>
       </div>
-      <p class="note" style="margin-top:18px">Real systems keep a <b>KV cache</b>: the keys and values from earlier tokens are saved, so each new pass only pushes one new vector through the weights instead of the whole sequence. The weights are still read in full for every new token (or for the chosen experts, in a mixture-of-experts model), which is why generation speed is usually limited by how fast weights can be streamed from GPU memory.</p>
+      <div class="panel" style="margin-top:18px">
+        <h3>The key/value cache</h3>
+        <p class="small muted" style="max-width:none">Every token that has been through the model left one key row and one value row in each block. A new token computes only its own row, then its query reads all the cached rows. The newest row is outlined; the bars show how the newest token spread its attention over the cache.</p>
+        <div id="kvView"></div>
+      </div>
     </section>
 <section class="view" id="v-surgery">
       <h2>Surgery: damage a weight, watch the behavior change</h2>
-      <p class="lede">The only thing that makes this model know that fish swim in ponds is the pattern in its weights. Remove or blur part of that pattern and see which abilities break.</p>
+      <p class="lede">Everything this model knows lives in the pattern of its weights. Remove or blur part of that pattern and see which abilities break.</p>
       <div class="surg">
         <div class="panel ctl">
           <h3>Remove attention heads</h3>
@@ -166,7 +195,7 @@
             <div class="panel"><h3>Original model</h3><div class="bars" id="sBase"></div></div>
             <div class="panel"><h3>After surgery</h3><div class="bars" id="sPatch"></div></div>
           </div>
-          <div class="panel scroll"><h3>Ability check</h3><p class="small muted">Each probe has a set of correct next words from the training world. A probe passes when the top prediction is one of them.</p><table class="probe" id="probes"></table></div>
+          <div class="panel scroll" id="probePanel"></div>
         </div>
       </div>
     </section>
