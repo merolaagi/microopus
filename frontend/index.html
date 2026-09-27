@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Micro Opus: the anatomy and physiology of a language model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="tip"></div>
+<header class="top" id="hdr">
+  <div class="topbar">
+    <div class="brand">Micro Opus</div>
+    <ul class="tabs" id="nav"></ul>
+    <span class="engine" id="engine"><i></i><span>Checking engine</span></span>
+    <button class="themeBtn" id="themeBtn">Light / dark</button>
+  </div>
+  <div class="promptbar">
+      <span class="lbl">Input</span>
+      <div class="chips" id="chips"></div>
+      <button class="pbtn" id="backBtn" aria-label="Remove last word">Remove last</button>
+      <button class="pbtn" id="palBtn">Add words</button>
+      <select class="pbtn" id="preset" aria-label="Example inputs">
+        <option value="">Examples</option>
+        <option>the bird flew over the</option>
+        <option>the cat</option>
+        <option>the fish swam in the</option>
+        <option>the big dog ran to the</option>
+        <option>the happy kid sang</option>
+        <option>the cat sat on the mat . the</option>
+      </select>
+      <div class="palette" id="palette"></div>
+  </div>
+</header>
+<main>
+    <section class="view wb" id="v-workbench">
+      <div class="transport">
+        <button class="btn" id="prevBtn" aria-label="Previous step">Back</button>
+        <button class="btn primary" id="playBtn">Play</button>
+        <button class="btn" id="nextBtn" aria-label="Next step">Next</button>
+        <button class="btn" id="replayBtn">Replay full pass</button>
+        <span class="stepname" id="stepName"></span>
+        <input type="range" id="scrub" min="1" max="26" value="1" aria-label="Step">
+        <span class="stepno" id="stepNo"></span>
+        <label class="small muted">Speed <select id="speed" class="pbtn"><option value="3400">Slow</option><option value="2200" selected>Normal</option><option value="1200">Fast</option></select></label>
+      </div>
+      <div class="wbgrid">
+        <div class="col graphcol" id="gscroll">
+          <div class="colhead"><b>Network</b><span>weights fly in from memory</span></div>
+          <svg id="graph" role="img" aria-label="Network graph of Micro Opus with weight memory on the left"></svg>
+        </div>
+        <div class="rc">
+          <div class="col scopecol" id="scopecol"><div class="scope" id="scope"></div></div>
+          <div class="col codecol">
+            <div class="codetabs" role="tablist" id="codeTabs"></div>
+            <div class="codenote" id="codeNote"></div>
+            <div class="codebody" id="codeBody"></div>
+            <div class="locals" id="locals"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="v-overview">
+      <div class="hero">
+        <div>
+          <h1>Watch 7,440 fixed numbers pick the next word.</h1>
+          <p class="lede">This is a real transformer, the same design family as GPT, Llama and Kimi, shrunk until every weight fits on screen. It was trained for this page, and it runs live in your browser. Change the input above and it thinks again. The Workbench tab animates a full forward pass next to the Python code that runs it.</p>
+          <p class="bignum">2 layers, 2 attention heads per layer, 16 numbers per token, a 30-word vocabulary.</p>
+        </div>
+        <div class="panel predict">
+          <h3>What it predicts next</h3><span class="muted small" id="ovCtx"></span>
+          <div class="bars" id="ovBars"></div>
+          <p class="cap" style="margin-top:12px">Each bar is a probability. It came from multiplying your words through every weight matrix in the model, in order.</p>
+        </div>
+      </div>
+
+      <h2>The mechanism of action</h2>
+      <ol class="mech" style="margin-bottom:28px">
+        <li><div><b>Look up.</b> Each word becomes a row of numbers copied out of the embedding matrix <span class="wtag">W_E</span>. That row is the word's starting vector.</div></li>
+        <li><div><b>Mix across words.</b> Attention lets each word's vector pull information from earlier words. Which words it pulls from is computed on the fly using <span class="wtag">W_Q</span> <span class="wtag">W_K</span> <span class="wtag">W_V</span> <span class="wtag">W_O</span>.</div></li>
+        <li><div><b>Transform each word.</b> An MLP multiplies each vector up to 64 numbers and back down with <span class="wtag">W_up</span> <span class="wtag">W_down</span>. This is where most stored "knowledge" lives.</div></li>
+        <li><div><b>Repeat.</b> Steps 2 and 3 form one block. This model stacks 2 blocks. Kimi K2 stacks 61, GPT-3 stacked 96.</div></li>
+        <li><div><b>Score every word.</b> The final vector is multiplied by <span class="wtag">W_U</span> to get one score per vocabulary word. Softmax turns scores into probabilities. Pick one, append it, run everything again.</div></li>
+      </ol>
+
+      <div class="vs" style="margin-bottom:28px">
+        <div>
+          <h3 class="w">Weights (the anatomy)</h3>
+          <ul>
+            <li>Matrices of numbers, stored in a file, loaded into memory once.</li>
+            <li>Identical for every input, every user, every token.</li>
+            <li>Never change while the model runs. Only training changes them.</li>
+            <li>They enter the computation as the right-hand side of a matrix multiply.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="a">Activations (the physiology)</h3>
+          <ul>
+            <li>Vectors created from your input, one per token.</li>
+            <li>Flow through the layers, getting multiplied by weights at each stop.</li>
+            <li>Thrown away after the answer, except the attention cache.</li>
+            <li>Everything the model "thinks" about your text lives here, briefly.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note">Anthropic hasn't published the architecture or size of Claude Opus, and OpenAI hasn't for its recent GPT models. What is public (the GPT-2 and GPT-3 papers, Llama, DeepSeek and Kimi K2 model cards) is this same decoder-only transformer skeleton. Frontier models differ mainly in scale and refinements such as mixture-of-experts, rotary positions and gated MLPs, all covered in the "Micro to frontier" tab.</p>
+    </section>
+<section class="view" id="v-anatomy">
+      <h2>Anatomy: the weight file, opened</h2>
+      <p class="lede">A model checkpoint is a dictionary of named matrices and nothing else. No code, no rules, no text. Here is every tensor in this model. Select one to see every number in it.</p>
+      <div class="grid2" style="margin-top:20px;align-items:start">
+        <div class="panel scroll"><table class="ftable" id="ftable"></table></div>
+        <div class="stack">
+          <div class="panel" id="inspector"></div>
+          <div class="panel">
+            <h3>Where the numbers came from</h3>
+            <p class="small muted">They started as random noise. Training showed the model 2,500 batches of sentences like "the bird flew over the tree ." and nudged every weight a tiny bit in the direction that lowered its next-word error (the loss). That is the entire training process. Real models do the same with trillions of words.</p>
+            <div id="lossChart"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+<section class="view" id="v-attention">
+      <h2>Attention patterns</h2>
+      <p class="lede">Each grid is one attention head. Row = the word doing the looking, column = the word being looked at. Darker means more attention. No word can look ahead, which is why the top-right is empty.</p>
+      <p>Notice that attention patterns are <b>not weights</b>. They are activations, computed fresh from <span class="wtag">W_Q</span> and <span class="wtag">W_K</span> for this particular input. Change the input and the patterns change; the weights that produced them do not.</p>
+      <div id="attnGrid" class="stack" style="margin-top:18px"></div>
+    </section>
+<section class="view" id="v-generation">
+      <h2>Generation: the same weights, over and over</h2>
+      <p class="lede">A model writes one token per forward pass. Each new word goes back into the input and the entire pass runs again, reading the same unchanged weights.</p>
+      <div class="gencontrols">
+        <button class="btn primary" id="gen1">Write one word</button>
+        <button class="btn" id="gen8">Write eight words</button>
+        <button class="btn" id="genReset">Restart from input</button>
+        <label class="small muted" style="display:flex;gap:8px;align-items:center">Temperature <input type="range" id="temp" min="0" max="1.5" step="0.1" value="0.8"> <span id="tempV" class="mono">0.8</span></label>
+      </div>
+      <div class="panel gentext" id="genText"></div>
+      <div class="counter" id="genCounter"></div>
+      <div class="grid2">
+        <div class="panel"><h3>Last prediction</h3><div class="bars" id="genBars"></div><p class="cap" id="genTempNote"></p></div>
+        <div class="panel"><h3>Pass log</h3><div class="log" id="genLog"></div></div>
+      </div>
+      <p class="note" style="margin-top:18px">Real systems keep a <b>KV cache</b>: the keys and values from earlier tokens are saved, so each new pass only pushes one new vector through the weights instead of the whole sequence. The weights are still read in full for every new token (or for the chosen experts, in a mixture-of-experts model), which is why generation speed is usually limited by how fast weights can be streamed from GPU memory.</p>
+    </section>
+<section class="view" id="v-surgery">
+      <h2>Surgery: damage a weight, watch the behavior change</h2>
+      <p class="lede">The only thing that makes this model know that fish swim in ponds is the pattern in its weights. Remove or blur part of that pattern and see which abilities break.</p>
+      <div class="surg">
+        <div class="panel ctl">
+          <h3>Remove attention heads</h3>
+          <div id="headBoxes"></div>
+          <h3>Remove an MLP</h3>
+          <div id="mlpBoxes"></div>
+          <h3>Blur a matrix with noise</h3>
+          <select id="noiseT"></select>
+          <label>Amount <input type="range" id="sigma" min="0" max="2" step="0.05" value="0"><span id="sigmaV" class="mono">0</span></label>
+          <button class="btn" id="reseed">New random noise</button>
+          <button class="btn" id="heal">Restore original weights</button>
+        </div>
+        <div class="stack">
+          <div class="grid2">
+            <div class="panel"><h3>Original model</h3><div class="bars" id="sBase"></div></div>
+            <div class="panel"><h3>After surgery</h3><div class="bars" id="sPatch"></div></div>
+          </div>
+          <div class="panel scroll"><h3>Ability check</h3><p class="small muted">Each probe has a set of correct next words from the training world. A probe passes when the top prediction is one of them.</p><table class="probe" id="probes"></table></div>
+        </div>
+      </div>
+    </section>
+<section class="view" id="v-scale">
+      <h2>From micro to frontier</h2>
+      <p class="lede">Nothing in a frontier model is structurally stranger than what you just saw. The matrices are wider, there are more blocks, and some layers are split into experts.</p>
+      <div class="panel" style="margin:20px 0">
+        <h3>Counting the weights</h3>
+        <p>Each block has 4 attention matrices of d×d and 2 MLP matrices of d×4d, so roughly <span class="mono">12 × layers × d²</span> weights, plus the embedding tables.</p>
+        <div class="eq" id="paramEq"></div>
+        <p class="small muted" style="margin:0">Every weight is used once per token, as one multiply and one add. So a dense model spends about 2 FLOPs per weight per token.</p>
+      </div>
+      <div class="panel scroll" style="margin-bottom:20px">
+        <table class="stable">
+          <thead><tr><th>Model</th><th style="text-align:right">Weights</th><th style="text-align:right">Blocks</th><th style="text-align:right">Width d</th><th style="text-align:right">Size at 16-bit</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr class="me"><td>Micro Opus (this page)</td><td class="n">7,440</td><td class="n">2</td><td class="n">16</td><td class="n">15 KB</td><td>Dense. Every weight used for every token.</td></tr>
+            <tr><td>GPT-2 small (2019)</td><td class="n">124 M</td><td class="n">12</td><td class="n">768</td><td class="n">248 MB</td><td>Dense, learned positions, like this page.</td></tr>
+            <tr><td>GPT-3 (2020)</td><td class="n">175 B</td><td class="n">96</td><td class="n">12,288</td><td class="n">350 GB</td><td>Dense. Needs many GPUs just to hold the weights.</td></tr>
+            <tr><td>Llama 3.1 405B (2024)</td><td class="n">405 B</td><td class="n">126</td><td class="n">16,384</td><td class="n">810 GB</td><td>Dense, rotary positions, gated (SwiGLU) MLP, RMSNorm.</td></tr>
+            <tr><td>Kimi K2 (2025)</td><td class="n">1 T total<br>32 B active</td><td class="n">61</td><td class="n">7,168</td><td class="n">~2 TB</td><td>Mixture of experts: 384 expert MLPs per layer, a router picks 8 per token, so only about 3% of weights run for each token.</td></tr>
+            <tr><td>Claude Opus, recent GPT</td><td class="n">not disclosed</td><td class="n">?</td><td class="n">?</td><td class="n">?</td><td>Architecture details are not public.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Where the weights physically live during a request</h3>
+      <div class="pipe" style="margin:12px 0 22px">
+        <div><b>Disk</b>Checkpoint files (often .safetensors shards) hold every matrix by name.</div>
+        <div><b>GPU memory</b>Loaded once at server start, split across many GPUs. They stay resident for months.</div>
+        <div><b>On-chip memory</b>For each matrix multiply, tiles of the weight matrix stream into the chip's fast memory.</div>
+        <div><b>Tensor cores</b>Weight tiles meet activation tiles. Products are summed. The activations move on to the next layer.</div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>Mixture of experts, in one picture</h3><p class="small">Replace the single MLP with many MLPs (experts) and add one small extra weight matrix, the router. The router multiplies the token's vector to score every expert, and only the top few run. Total weights can reach a trillion while each token touches a few percent of them.</p></div>
+        <div class="panel"><h3>Why batching is cheap</h3><p class="small">The expensive part is reading weights from memory. Once a weight tile is on-chip, multiplying it against the vectors of 64 different users' tokens costs little more than doing it for one. That's why providers serve many conversations through the same copy of the weights at once.</p></div>
+      </div>
+    </section>
+</main>
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
