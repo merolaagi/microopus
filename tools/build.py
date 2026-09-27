@@ -24,9 +24,14 @@ data = (
 )
 (FE / "data.js").write_text(data)
 
-html = (FE / "index.html").read_text()
+version = (ROOT / "VERSION").read_text().strip()
+index = (FE / "index.html").read_text()
+index = re.sub(r'(src|href)="(style\.css|data\.js|engine\.js|app\.js)(\?v=[^"]*)?"', rf'\1="\2?v={version}"', index)
+(FE / "index.html").write_text(index)
+
+html = index
 css = (FE / "style.css").read_text()
-html = html.replace('<link rel="stylesheet" href="style.css">', "<style>\n" + css + "\n</style>")
+html = re.sub(r'<link rel="stylesheet" href="style\.css[^"]*">', lambda m: "<style>\n" + css + "\n</style>", html)
 
 
 def inline(match):
@@ -34,7 +39,7 @@ def inline(match):
     return "<script>\n" + body + "\n</script>"
 
 
-html = re.sub(r'<script src="([^"]+)"></script>', inline, html)
+html = re.sub(r'<script src="([^"?]+)(?:\?[^"]*)?"></script>', inline, html)
 (ROOT / "dist").mkdir(exist_ok=True)
 (ROOT / "dist" / "micro-opus.html").write_text(html)
 print(f"data.js {len(data) // 1024} KB, dist/micro-opus.html {len(html) // 1024} KB")

@@ -32,8 +32,18 @@ cat > "$PLIST" <<PLIST
 </dict></plist>
 PLIST
 
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+DOMAIN="gui/$(id -u)"
+launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+for i in $(seq 1 20); do
+  launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || break
+  sleep 0.5
+done
+launchctl enable "$DOMAIN/$LABEL" 2>/dev/null || true
+for i in 1 2 3 4 5; do
+  if launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null; then break; fi
+  echo "launchd not ready yet, retrying ($i/5)"
+  sleep 2
+done
 
 for i in 1 2 3 4 5 6 7 8 9 10; do
   if curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then

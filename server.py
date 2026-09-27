@@ -22,6 +22,17 @@ MODELS = {name: MicroOpus(name) for name in ("words", "names")}
 app = FastAPI(title="Micro Opus")
 
 
+@app.middleware("http")
+async def no_stale_pages(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache"
+    elif request.url.query.startswith("v="):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
 class TraceRequest(BaseModel):
     ids: list[int]
     model: str = "words"
