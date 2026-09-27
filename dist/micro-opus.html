@@ -305,6 +305,21 @@ svg.gsvg{display:block;width:100%;height:auto}
 .tsel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:var(--mono);font-size:13px}
 @media (max-width:900px){.trio{grid-template-columns:1fr}}
 
+/* ---------- tensor guide ---------- */
+#tcard{position:fixed;z-index:60;display:none;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--weight) 55%,var(--line));border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.28);font-size:14px;line-height:1.5;max-height:min(78vh,620px);overflow-y:auto}
+#tcard p,.tguide p{margin:0 0 8px;max-width:none}
+.tc-h{display:flex;gap:10px;align-items:center;margin-bottom:8px;font-size:16px}
+.tc-sec{font-size:12.5px;color:var(--muted);font-weight:600;margin:10px 0 4px;border-top:1px solid var(--line);padding-top:8px}
+.math{font-family:"Cambria Math","STIX Two Math","Latin Modern Math",Georgia,serif;font-size:17px;background:var(--sunk);border-radius:6px;padding:6px 10px;margin:4px 0 6px;overflow-x:auto;white-space:nowrap}
+.math-in{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:15px;white-space:nowrap}
+.math sub,.math sup{font-size:.7em}
+.like{color:var(--muted);font-style:italic}
+.eg{background:var(--act-soft);border-left:3px solid var(--act);border-radius:4px;padding:6px 10px;margin:8px 0;font-size:13.5px}
+.learn{font-size:12.5px;color:var(--muted)}
+.wtag,.wref,.gsvg .slot,.gsvg .gn.param{cursor:help}
+.wtag{text-decoration:underline dotted color-mix(in srgb,var(--weight) 60%,transparent);text-underline-offset:3px}
+.tguide{font-size:14.5px}
+
 </style>
 </head>
 <body>
@@ -974,7 +989,7 @@ function createGraph(svgId, scrollId, pfx) {
       if (n.kind === 'add') s += `<g class="gn" id="${pfx}gn-${n.id}" data-step="${n.step}" tabindex="0"><circle cx="${n.cx}" cy="${n.cy}" r="14"/><text x="${n.cx}" y="${n.cy + 5}" text-anchor="middle" style="font-size:17px">+</text></g>`;
       else {
         const wide = n.w > 90, wl = n.wt.length && wide ? `<text class="wsub" x="${n.x + n.w - 8}" y="${n.cy + 4}" text-anchor="end">${shape(W0[n.wt[0]]).join('×')}</text>` : '';
-        s += `<g class="gn ${n.wt.length ? 'param' : ''}" id="${pfx}gn-${n.id}" data-step="${n.step}" tabindex="0"><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"/><text x="${wide ? n.x + 10 : n.cx}" y="${n.cy + (n.sub ? -2 : 4)}" ${wide ? '' : 'text-anchor="middle"'}>${esc(n.label)}</text>${n.sub ? `<text class="sub" id="${pfx}sub-${n.id}" x="${n.x + 10}" y="${n.cy + 11}"></text>` : ''}${wl}</g>`;
+        s += `<g class="gn ${n.wt.length ? 'param' : ''}" id="${pfx}gn-${n.id}" data-step="${n.step}" ${n.wt.length ? `data-tensor="${n.wt[0]}"` : ''} tabindex="0"><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"/><text x="${wide ? n.x + 10 : n.cx}" y="${n.cy + (n.sub ? -2 : 4)}" ${wide ? '' : 'text-anchor="middle"'}>${esc(n.label)}</text>${n.sub ? `<text class="sub" id="${pfx}sub-${n.id}" x="${n.x + 10}" y="${n.cy + 11}"></text>` : ''}${wl}</g>`;
       }
     });
     s += `</g><g id="${pfx}pt"></g><text class="blkT" transform="translate(${LANE + 12},${g.N.find(n => n.id === 'n10').cy + 40}) rotate(90)">residual stream</text>`;
@@ -1557,8 +1572,8 @@ function renderAnatomy() {
   const k = S.sel, t = W0[k], r = roleOf(k), sh = shape(t), M = sh.length === 1 ? [t] : t;
   const cell = sh.length === 1 ? 22 : Math.max(6, Math.min(18, Math.floor(520 / M[0].length)));
   const flat = M.flat(), mean = flat.reduce((a, b) => a + b, 0) / flat.length, sd = Math.sqrt(flat.reduce((a, b) => a + (b - mean) ** 2, 0) / flat.length);
-  $('inspector').innerHTML = `<h3><span class="wtag">${k}</span> ${r[0]}</h3><p class="small">${r[1]}</p>
-    <p class="small muted">Shape ${sh.join(' × ')}, ${fmt(flat.length)} numbers, mean ${mean.toFixed(3)}, spread ${sd.toFixed(3)}, largest |value| ${maxAbs(M).toFixed(3)}. Hover any cell for its exact value.</p>
+  $('inspector').innerHTML = `<div class="tguide">${TG.body(k) || ''}</div>
+    <p class="small muted" style="margin-top:12px">Shape ${sh.join(' × ')}, mean ${mean.toFixed(3)}, spread ${sd.toFixed(3)}, largest |value| ${maxAbs(M).toFixed(3)}. Hover any cell for its exact value.</p>
     <div class="scroll">${heat(M, { name: k, cell, rowLabels: r[2] || (sh.length === 1 ? ['gain'] : null), colLabels: r[3], lw: 52, frame: 'wframe' })}</div>`;
   const c = MODEL.loss_curve;
   $('lossChart').innerHTML = lineChart([{ name: 'training loss', color: 'var(--weight)', pts: c.map(q => [q[0], q[1]]) }, { name: 'held-out loss', color: 'var(--act)', dash: true, pts: c.map(q => [q[0], q[2]]) }], { aria: 'shipped model training loss' }) +
@@ -1684,6 +1699,169 @@ $('sigma').oninput = e => { S.surg.sigma = +e.target.value; $('sigmaV').textCont
 $('reseed').onclick = () => { S.surg.seed++; renderSurg(); };
 $('heal').onclick = () => { S.surg.heads.clear(); S.surg.mlps.clear(); S.surg.sigma = 0; $('sigma').value = 0; $('sigmaV').textContent = '0'; document.querySelectorAll('#v-surgery input[type=checkbox]').forEach(c => c.checked = false); renderSurg(); };
 function renderScale() { $('paramEq').innerHTML = `12 × ${L} × ${D}² = ${fmt(12 * L * D * D)}  +  embeddings ${V}×${D} + ${D}×${V} + ${T}×${D} = ${fmt(2 * V * D + T * D)}  +  norm gains ${fmt(5 * D)}  =  <b>${fmt(12 * L * D * D + 2 * V * D + T * D + 5 * D)}</b>`; }
+
+/* ================= tensor guide: plain-English + math popover for every weight ================= */
+const TG = (() => {
+  const card = document.createElement('div');
+  card.id = 'tcard'; card.setAttribute('role', 'tooltip'); document.body.appendChild(card);
+  let showT = 0, hideT = 0, curEl = null;
+  const n3 = v => (v >= 0 ? '' : '−') + Math.abs(v).toFixed(3);
+  const vec4 = a => '[' + Array.from(a).slice(0, 4).map(n3).join(', ') + ', …]';
+  const M = (s) => `<div class="math">${s}</div>`;
+  const sub = (a, b) => `<i>${a}</i><sub>${b}</sub>`;
+  const curLayer = () => (S.section === 'workbench' && STEPS[S.step] && STEPS[S.step].l != null) ? STEPS[S.step].l : 0;
+
+  function resolve(el) {
+    if (el.dataset.tensor) return el.dataset.tensor;
+    if (el.classList.contains('slot')) return el.dataset.w;
+    if (el.matches('tr.row')) return el.dataset.k;
+    const txt = el.textContent;
+    const m = txt.match(/(L\d\.)?(W_[A-Za-z]+|g_f|g1|g2)/);
+    if (!m) return null;
+    if (m[1]) return m[1] + m[2];
+    return ['W_E', 'W_P', 'W_U', 'g_f'].includes(m[2]) ? m[2] : `L${curLayer()}.${m[2]}`;
+  }
+
+  function body(name) {
+    const role = name.replace(/^L\d\./, ''), l = +(name.match(/^L(\d)/) || [0, 0])[1];
+    const W = W0[name]; if (!W || !TR) return null;
+    const f = focusPos(), id = S.ids[f], tok = esc(VOCAB[id]), Ly = TR.layers[l];
+    const shp = shape(W).join(' × '), n = count(W), pct = (n / paramCount(W0) * 100).toFixed(1);
+    const blk = name.startsWith('L') ? ` in block ${l + 1}` : '';
+    const eg = s => `<div class="eg"><b>With your input</b> (following "${tok}", position ${f}): ${s}</div>`;
+    const dot = (x, Wm, j) => { const t = x.map((xi, i) => [xi * Wm[i][j], i]); return t.reduce((s, [v]) => s + v, 0); };
+    const firstTerms = (x, Wm, j, nm) => `${n3(x[0])}×${n3(Wm[0][j])} + ${n3(x[1])}×${n3(Wm[1][j])} + … (${x.length} terms) = <b>${n3(dot(x, Wm, j))}</b>`;
+    const C = {
+      W_E: {
+        t: 'Token embedding table',
+        plain: `A lookup table with one row per token in the vocabulary (${V} rows). Each row is the model's starting description of that token, written as ${D} numbers. Tokens that behave alike in the training text end up with similar rows.`,
+        like: 'A dictionary where every word\'s definition is written as 16 numbers instead of words.',
+        math: M(`${sub('x', 't')} = <i>W</i><sub>E</sub>[ id<sub>t</sub> ]`) + '<p>Pick the row whose number is the token\'s id. No multiplication happens; it is a pure lookup (the same as multiplying a one-hot vector by the table).</p>',
+        dims: `rows = tokens, columns = ${D} features. No column has a fixed meaning; training decides what each one ends up tracking.`,
+        ex: () => eg(`"${tok}" has id ${id}, so its vector is row ${id}: ${vec4(W[id])}`)
+      },
+      W_P: {
+        t: 'Position table',
+        plain: 'One row per position in the context window (0 to 15). Attention by itself treats the input like a bag of tokens, so this row is added to say "I am the 3rd token", "I am the 4th token", and so on.',
+        like: 'Seat numbers in a theatre: the same person means something different in row 1 than in row 15.',
+        math: M(`${sub('x', 't')} = <i>W</i><sub>E</sub>[ id<sub>t</sub> ] + <i>W</i><sub>P</sub>[ <i>t</i> ]`) + '<p>Add, entry by entry, the row for the token\'s position.</p>',
+        dims: `rows = positions 0..${T - 1}, columns = the same ${D} features as W_E, so the two rows can be added.`,
+        ex: () => eg(`row ${f} is ${vec4(W[f])}; added to the token row it gives ${vec4(TR.x0[f])}`)
+      },
+      norm: {
+        t: `Normalization gain${blk}`,
+        plain: `Before ${role === 'g1' ? 'attention' : role === 'g2' ? 'the MLP' : 'scoring the vocabulary'}, the vector is shrunk or stretched so its typical size is 1. That keeps numbers from growing out of control as blocks stack up. Then each of the ${D} positions is multiplied by its own learned "volume knob": these ${D} numbers.`,
+        like: 'Setting a microphone to a standard level, then adjusting each frequency band on an equalizer.',
+        math: M(`rms(<i>x</i>) = √( (1/${D}) Σ<sub>i</sub> ${sub('x', 'i')}² + ε )`) + M(`${sub('h', 'i')} = ${sub('x', 'i')} ÷ rms(<i>x</i>) × ${sub('g', 'i')}`) + '<p>ε = 0.00001 only prevents dividing by zero.</p>',
+        dims: `a single row of ${D} gains, one per feature. They start at 1.0.`,
+        ex: () => {
+          const x = role === 'g1' ? Ly.xin[f] : role === 'g2' ? Ly.xmid[f] : TR.layers.at(-1).xout[f];
+          const r = Math.sqrt(x.reduce((s, v) => s + v * v, 0) / D + 1e-5);
+          return eg(`rms(x) = ${n3(r)}, so h<sub>0</sub> = ${n3(x[0])} ÷ ${n3(r)} × ${n3(W[0])} = <b>${n3(x[0] / r * W[0])}</b>`);
+        }
+      },
+      W_Q: {
+        t: `Query projection${blk}`,
+        plain: 'Turns each token\'s vector into a question: "what kind of earlier token am I looking for?" Columns 0 to 7 make the question for head 1, columns 8 to 15 for head 2.',
+        like: 'Typing a search query. W_K writes the labels on every page; attention matches query against labels.',
+        math: M(`<i>q</i> = <i>h</i> · <i>W</i><sub>Q</sub>, &nbsp; ${sub('q', 'j')} = Σ<sub>i</sub> ${sub('h', 'i')} <i>W</i><sub>Q</sub>[<i>i</i>][<i>j</i>]`) + M(`score(<i>i</i>→<i>j</i>) = ( ${sub('q', 'i')} · ${sub('k', 'j')} ) ÷ √<span style="text-decoration:overline">${DH}</span>`),
+        dims: `${D} × ${D}: row i = input feature, column j = one query number. Each query number is a weighted sum of all ${D} inputs, so the matrix does ${D * D} multiply-adds per token.`,
+        ex: () => eg(`q<sub>0</sub> = ${firstTerms(Ly.h1[f], W, 0)}`)
+      },
+      W_K: {
+        t: `Key projection${blk}`,
+        plain: 'Turns each token\'s vector into a label: "here is what I contain." A token\'s query is compared with the key of every earlier token; big matches get attention.',
+        like: 'The label on a file folder. The query decides which folders to open.',
+        math: M(`<i>k</i> = <i>h</i> · <i>W</i><sub>K</sub>`) + M(`${sub('a', 'ij')} = softmax<sub><i>j</i></sub>( ${sub('q', 'i')} · ${sub('k', 'j')} ÷ √<span style="text-decoration:overline">${DH}</span> ) &nbsp; for <i>j</i> ≤ <i>i</i>`) + '<p>Softmax turns the scores into percentages that add up to 100%. Future tokens are masked out.</p>',
+        dims: `${D} × ${D}, split into two ${DH}-column halves for the two heads.`,
+        ex: () => { const a = Ly.att[0][f], j = a.indexOf(Math.max(...a)); return eg(`head 1 gives "${esc(VOCAB[S.ids[j]])}" the biggest match: score ${n3(Ly.scores[0][f][j])}, which softmax turns into <b>${(a[j] * 100).toFixed(0)}%</b>`); }
+      },
+      W_V: {
+        t: `Value projection${blk}`,
+        plain: 'Turns each token\'s vector into the message it hands over when another token pays attention to it. Keys decide who gets attention; values are what actually gets copied.',
+        like: 'The contents inside the folder, as opposed to the label on it.',
+        math: M(`<i>v</i> = <i>h</i> · <i>W</i><sub>V</sub>`) + M(`${sub('blend', 'i')} = Σ<sub><i>j</i></sub> ${sub('a', 'ij')} ${sub('v', 'j')}`) + '<p>A weighted average of earlier tokens\' values, weighted by attention.</p>',
+        dims: `${D} × ${D}; columns 0 to 7 feed head 1, 8 to 15 feed head 2.`,
+        ex: () => eg(`v<sub>0</sub> for "${tok}" = ${firstTerms(Ly.h1[f], W, 0)}`)
+      },
+      W_O: {
+        t: `Attention output projection${blk}`,
+        plain: 'Takes the two heads\' blended results (8 + 8 numbers) and mixes them back into one 16-number update, which is then added to the token\'s running vector.',
+        like: 'Two reporters each bring notes; the editor combines them into one paragraph and appends it to the story.',
+        math: M(`Δ<i>x</i> = blend · <i>W</i><sub>O</sub>`) + M(`<i>x</i> ← <i>x</i> + Δ<i>x</i>`) + '<p>Adding (not replacing) is the residual connection: information from earlier steps is kept.</p>',
+        dims: `${D} × ${D}: rows 0 to 7 read head 1's output, rows 8 to 15 read head 2's.`,
+        ex: () => eg(`Δx<sub>0</sub> = ${firstTerms(Ly.mix[f], W, 0)}`)
+      },
+      W_up: {
+        t: `MLP expand${blk}`,
+        plain: `Widens the vector from ${D} to ${F} numbers. Each of the ${F} columns is a pattern detector: its output is large when the vector looks like that column. GELU then switches off detectors that scored negative.`,
+        like: `${F} specialists each reading the same memo and raising a hand, strongly or weakly, if it matches their specialty.`,
+        math: M(`${sub('u', 'k')} = Σ<sub>i</sub> ${sub('h', 'i')} <i>W</i><sub>up</sub>[<i>i</i>][<i>k</i>]`) + M(`${sub('a', 'k')} = GELU(${sub('u', 'k')}) = ½ ${sub('u', 'k')} ( 1 + tanh( 0.798 ( ${sub('u', 'k')} + 0.0447 ${sub('u', 'k')}³ ) ) )`) + '<p>GELU is close to "keep positives, zero out negatives", with a smooth bend near zero.</p>',
+        dims: `${D} × ${F}: column k is detector k's template.`,
+        ex: () => { const a = Ly.act[f], k = a.indexOf(Math.max(...a)); return eg(`the strongest detector is #${k}: u = ${n3(Ly.up[f][k])}, after GELU a = <b>${n3(a[k])}</b>. ${a.filter(v => v > 0.05).length} of ${F} detectors fire.`); }
+      },
+      W_down: {
+        t: `MLP shrink${blk}`,
+        plain: `Maps the ${F} detector outputs back to ${D} numbers and adds them to the token's vector. Row k is what detector k writes whenever it fires. Most of what a model "knows" is stored in these two MLP matrices.`,
+        like: 'Each specialist who raised a hand adds their own sentence to the memo.',
+        math: M(`Δ<i>x</i> = Σ<sub>k</sub> ${sub('a', 'k')} <i>W</i><sub>down</sub>[<i>k</i>]`) + M(`<i>x</i> ← <i>x</i> + Δ<i>x</i>`),
+        dims: `${F} × ${D}: row k = what detector k contributes.`,
+        ex: () => { const a = Ly.act[f], k = a.indexOf(Math.max(...a)); return eg(`detector #${k} fired at ${n3(a[k])}, so it adds ${n3(a[k])} × row ${k} = ${vec4(W[k].map(v => v * a[k]))}`); }
+      },
+      W_U: {
+        t: 'Unembedding (output scores)',
+        plain: `One column per vocabulary token. The final vector is compared with every column; the better it matches, the higher that token's score. Softmax turns the ${V} scores into probabilities for the next token.`,
+        like: 'A panel of judges, one per possible next token, each scoring how well the final vector fits them.',
+        math: M(`${sub('z', 'w')} = Σ<sub>i</sub> ${sub('h', 'i')} <i>W</i><sub>U</sub>[<i>i</i>][<i>w</i>]`) + M(`${sub('p', 'w')} = e<sup>${sub('z', 'w')}</sup> ÷ Σ<sub><i>u</i></sub> e<sup>${sub('z', 'u')}</sup>`),
+        dims: `${D} × ${V}: column w belongs to token w.`,
+        ex: () => { const p = TR.probs[f], w = p.indexOf(Math.max(...p)); return eg(`the top score is "${esc(VOCAB[w])}": z = ${n3(TR.logits[f][w])}, probability <b>${(p[w] * 100).toFixed(1)}%</b>`); }
+      }
+    };
+    const c = C[role] || C.norm;
+    return `<div class="tc-h"><span class="wtag">${esc(name)}</span><b>${c.t}</b></div>
+      <p>${c.plain}</p><p class="like">Think of it as: ${c.like}</p>
+      <div class="tc-sec">The math</div>${c.math}
+      <div class="tc-sec">Shape ${shp} (${fmt(n)} numbers, ${pct}% of the model)</div><p>${c.dims}</p>
+      ${c.ex()}
+      <p class="learn">These numbers never change while the model runs. Training set them, starting from random noise, by nudging each entry against its gradient: <span class="math-in"><i>W</i> ← <i>W</i> − η · ∂<i>L</i>/∂<i>W</i></span> (Adam adds per-weight step sizes).</p>`;
+  }
+
+  function place(el) {
+    const r = el.getBoundingClientRect(), cw = Math.min(440, innerWidth - 16);
+    card.style.width = cw + 'px';
+    let left = Math.max(8, Math.min(r.left, innerWidth - cw - 8));
+    card.style.left = left + 'px';
+    const h = card.offsetHeight;
+    const below = r.bottom + 8, above = r.top - h - 8;
+    card.style.top = (below + h < innerHeight - 8 || above < 8 ? Math.min(below, Math.max(8, innerHeight - h - 8)) : above) + 'px';
+  }
+  function show(el) {
+    const name = resolve(el); if (!name) return;
+    const html = body(name); if (!html) return;
+    curEl = el; card.innerHTML = html; card.style.display = 'block'; place(el);
+    $('tip').style.display = 'none';
+  }
+  const hide = () => { card.style.display = 'none'; curEl = null; };
+  const SEL = '.wtag, .slot, .gn.param, .wref, .lv.wt .nm, [data-tensor]';
+  document.addEventListener('pointerover', e => {
+    if (e.pointerType === 'touch') return;
+    if (e.target.closest('#tcard')) { clearTimeout(hideT); return; }
+    const el0 = e.target.closest(SEL), el = el0 && !el0.closest('.tguide, #ftable') ? el0 : null;
+    clearTimeout(showT);
+    if (el) { clearTimeout(hideT); if (el !== curEl) showT = setTimeout(() => show(el), 260); }
+    else if (curEl) { clearTimeout(hideT); hideT = setTimeout(hide, 220); }
+  });
+  document.addEventListener('focusin', e => { const el = e.target.closest(SEL); if (el && el.matches(':focus-visible')) show(el); });
+  document.addEventListener('focusout', () => { hideT = setTimeout(hide, 150); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  document.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    if (e.target.closest('#tcard')) return;
+    const el = e.target.closest('.wtag, .wref, .lv.wt .nm');
+    if (el) { el === curEl ? hide() : show(el); } else hide();
+  });
+  return { body, hide };
+})();
 
 /* ================= boot ================= */
 function render() {

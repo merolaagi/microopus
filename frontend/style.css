@@ -294,3 +294,18 @@ svg.gsvg{display:block;width:100%;height:auto}
 .kvgrid h4{margin:0 0 6px;font-size:14px}
 .tsel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:var(--mono);font-size:13px}
 @media (max-width:900px){.trio{grid-template-columns:1fr}}
+
+/* ---------- tensor guide ---------- */
+#tcard{position:fixed;z-index:60;display:none;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--weight) 55%,var(--line));border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.28);font-size:14px;line-height:1.5;max-height:min(78vh,620px);overflow-y:auto}
+#tcard p,.tguide p{margin:0 0 8px;max-width:none}
+.tc-h{display:flex;gap:10px;align-items:center;margin-bottom:8px;font-size:16px}
+.tc-sec{font-size:12.5px;color:var(--muted);font-weight:600;margin:10px 0 4px;border-top:1px solid var(--line);padding-top:8px}
+.math{font-family:"Cambria Math","STIX Two Math","Latin Modern Math",Georgia,serif;font-size:17px;background:var(--sunk);border-radius:6px;padding:6px 10px;margin:4px 0 6px;overflow-x:auto;white-space:nowrap}
+.math-in{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:15px;white-space:nowrap}
+.math sub,.math sup{font-size:.7em}
+.like{color:var(--muted);font-style:italic}
+.eg{background:var(--act-soft);border-left:3px solid var(--act);border-radius:4px;padding:6px 10px;margin:8px 0;font-size:13.5px}
+.learn{font-size:12.5px;color:var(--muted)}
+.wtag,.wref,.gsvg .slot,.gsvg .gn.param{cursor:help}
+.wtag{text-decoration:underline dotted color-mix(in srgb,var(--weight) 60%,transparent);text-underline-offset:3px}
+.tguide{font-size:14.5px}
